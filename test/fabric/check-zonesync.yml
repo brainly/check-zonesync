@@ -1,0 +1,33 @@
+---
+lockfile: /tmp/check-zonesync.lock
+timeout: 3
+
+zones:
+  test1.zone.pl:
+    zonehosts:
+        master1:
+            ip: 1.2.3.4
+            port: 54
+            key-id: master1-slave-key
+            key-data: 8Y82bUZAy+izCckwxYUiMF1yzngCL8vZbNWydhYupE3U6KOcfAkcjm5xn42ZhJgYkwtTcqOT8rrsxop7SLe6vQ==
+            key-algo: hmac-sha512
+            master: true
+        master2:
+            ip: 1.2.3.5
+            key-id: master2-slave-key
+            key-data: 9DpVfo7ossbLvLSIvZjz0Zw0+N/kd+c6Z/c5z1SajpFsTYMDaktsujTLmDJ7zDp8MFDU1M5Hax2+p5xS+mfBLw==
+            key-algo: hmac-sha512
+            master: true
+        slavehost1:
+            ip: 2.3.4.5
+        slavehost2:
+            ip: 2.3.4.6
+            key-id: slavehost2-slave-key
+            key-data: YUsVB42q8QxW/t1KINeM8CAo0A63j3LTlNLPZ8nqGXMUL/rArk17CfjpYDgmWlIGloYNs3UYkUibWztQiK9lEg==
+            key-algo: hmac-sha512
+        slavehost3:
+            ip: 2.3.4.7
+            key-id: slavehost3-slave-key
+            key-data: msTrUNoF7BHApvSQkgEyn8v3LVr+/ssJVUFlytDiRHgZz6RmhVCl1FfIb51rXCcGb190V8ZAuVvLFbWJ0W/n8w==
+            key-algo: hmac-sha512
+    zonedata: /tmp/example.com.zone

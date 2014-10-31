@@ -1,0 +1,9 @@
+build/*
+check_zonesync.egg-info/*
+debian/check-zonesync.*
+debian/check-zonesync/
+debian/files
+*.swp
+*.swo
+*.pyc
+.pybuild/*
