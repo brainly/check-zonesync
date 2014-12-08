@@ -1,3 +1,9 @@
+check-zonesync (1.2.1) stable; urgency=low
+
+  * Small regexp fix.
+
+ -- root <root@debian01.tr.mop.vespian.net>  Mon, 08 Dec 2014 08:00:26 +0000
+
 check-zonesync (1.2.0) stable; urgency=low
 
   * Simplify zone differences reporting

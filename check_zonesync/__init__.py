@@ -125,7 +125,7 @@ def _verify_host_data(host_hash, zone, host_name):
                        'should have both "key-id" and "key-data" keys ' +
                        'defined or none of them.')
         else:
-            if not re.match(r"^[a-zA-Z0-9-]+$", host_hash['key-id']):
+            if not re.match(r"^[a-zA-Z0-9-\.]+$", host_hash['key-id']):
                 msg.append('Zone {0}, zonekey for host {1}'.format(zone, host_name) +
                            ' has invalid "id" entry: {0}.'.format(
                            host_hash['key-id']))
