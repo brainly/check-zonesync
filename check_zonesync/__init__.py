@@ -30,11 +30,12 @@ import re
 import sys
 
 # Defaults:
-LOCKFILE_LOCATION = './'+os.path.basename(__file__)+'.lock'
-CONFIGFILE_LOCATION = './'+os.path.basename(__file__)+'.conf'
+LOCKFILE_LOCATION = './' + os.path.basename(__file__) + '.lock'
+CONFIGFILE_LOCATION = './' + os.path.basename(__file__) + '.conf'
 
 
 class ZoneTransferFailed(RecoverableException):
+
     """
     A catch-all exception for zone transfer failures.
     """
@@ -42,6 +43,7 @@ class ZoneTransferFailed(RecoverableException):
 
 
 class ZoneParseFailed(RecoverableException):
+
     """
     A catch-all exception for zone file parsing failures.
     """
@@ -316,13 +318,15 @@ def compare_domain_data(zone_correct, zone_tested):
                     # missing:
                     tmp = True
                 else:
-                    rdataset_tested = node_tested.find_rdataset(rdataset.rdclass,
-                                                                rdataset.rdtype)
+                    rdataset_tested = node_tested.find_rdataset(
+                        rdataset.rdclass,
+                        rdataset.rdtype)
                 if tmp or rdata not in rdataset_tested:
                     # This particular entry is missing:
                     ret.record_types.add(record_type)
-                    ret.full.append("{0} '{1}':{2} is missing".format(record_type,
-                                    record_name, str(rdata)))
+                    ret.full.append(
+                        "{0} '{1}':{2} is missing".format(record_type,
+                                                          record_name, str(rdata)))
                 else:
                     # Entry has not changed:
                     logging.debug("{0} '{1}' entry OK: {2}".format(
@@ -347,8 +351,9 @@ def compare_domain_data(zone_correct, zone_tested):
                     # redundant:
                     tmp = True
                 else:
-                    rdataset_correct = node_correct.find_rdataset(rdataset.rdclass,
-                                                                  rdataset.rdtype)
+                    rdataset_correct = node_correct.find_rdataset(
+                        rdataset.rdclass,
+                        rdataset.rdtype)
                 if tmp or rdata not in rdataset_correct:
                     ret.record_types.add(record_type)
                     ret.full.append("{0} '{1}':{2} is redundant".format(
@@ -423,7 +428,7 @@ def main(config_file, std_err=False, verbose=True):
             args=['unknown', "Timed out after {0} seconds".format(
                 ScriptConfiguration.get_val('timeout'))],
             kwargs={},
-            )
+        )
 
         # Do some real work...
         zones = ScriptConfiguration.get_val('zones')
@@ -506,7 +511,8 @@ def main(config_file, std_err=False, verbose=True):
                         zoneok_flag = False
                         break
 
-                zonedata_diff = compare_domain_data(zonedata_correct, zonedata_cur)
+                zonedata_diff = compare_domain_data(
+                    zonedata_correct, zonedata_cur)
                 # ZoneDiff(full=[], record_types=set([]))
                 if len(zonedata_diff.record_types) > 0:
                     # Treat diferences in serial as just a "warning", everything
@@ -534,8 +540,9 @@ def main(config_file, std_err=False, verbose=True):
 
         # Send gathered data to the monitoring system.
         ScriptTimeout.clear_timeout()
-        ScriptLock.release()  # I do not like it, but ScriptStatus.notify_agregated
-                              # calls sys.exit() when configured with Nagios.
+        # I do not like it, but ScriptStatus.notify_agregated
+        # calls sys.exit() when configured with Nagios.
+        ScriptLock.release()
         ScriptStatus.notify_agregated()
 
     except RecoverableException as e:
