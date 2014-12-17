@@ -14,7 +14,7 @@
 # the License.
 
 # Imports:
-from collections import namedtuple, defaultdict
+from collections import namedtuple
 from pymisc.monitoring import ScriptStatus
 from pymisc.script import RecoverableException, ScriptConfiguration, ScriptLock
 from pymisc.script import ScriptTimeout, FatalException
@@ -236,8 +236,8 @@ def fetch_domain_data(zone_name=None, zone_file=None, host=None, port=None,
         except dns.exception.DNSException as e:
             raise ZoneParseFailed() from e
     elif not zone_file and \
-        ( host and not (key_id or key_data or key_algo)) or \
-        ( host and key_id and key_data and key_algo):
+        (host and not (key_id or key_data or key_algo)) or \
+            (host and key_id and key_data and key_algo):
         try:
             if key_id:
                 keyring = dns.tsigkeyring.from_text({key_id: key_data})
@@ -348,7 +348,7 @@ def compare_domain_data(zone_correct, zone_tested):
                     tmp = True
                 else:
                     rdataset_correct = node_correct.find_rdataset(rdataset.rdclass,
-                                                                 rdataset.rdtype)
+                                                                  rdataset.rdtype)
                 if tmp or rdata not in rdataset_correct:
                     ret.record_types.add(record_type)
                     ret.full.append("{0} '{1}':{2} is redundant".format(
@@ -534,8 +534,8 @@ def main(config_file, std_err=False, verbose=True):
 
         # Send gathered data to the monitoring system.
         ScriptTimeout.clear_timeout()
-        ScriptLock.release() # I do not like it, but ScriptStatus.notify_agregated
-                             # calls sys.exit() when configured with Nagios.
+        ScriptLock.release()  # I do not like it, but ScriptStatus.notify_agregated
+                              # calls sys.exit() when configured with Nagios.
         ScriptStatus.notify_agregated()
 
     except RecoverableException as e:
