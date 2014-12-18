@@ -218,6 +218,7 @@ def fetch_domain_data(zone_name=None, zone_file=None, host=None, port=None,
 
     Args:
         host: An IP address of the host to query for DNS data.
+        port: port on which DNS server listens
         path: The path to the file that contains zone data.
         key_id: An identification string for TSIG signing key.
         key_data: A TSIG signing key which should be used during
@@ -238,9 +239,9 @@ def fetch_domain_data(zone_name=None, zone_file=None, host=None, port=None,
             zone = dns.zone.from_file(zone_file, origin=zone_name)
         except dns.exception.DNSException as e:
             raise ZoneParseFailed() from e
-    elif not zone_file and \
-        (host and not (key_id or key_data or key_algo)) or \
-            (host and key_id and key_data and key_algo):
+    elif not zone_file and host and \
+        (not (key_id or key_data or key_algo) or \
+            (key_id and key_data and key_algo)):
         try:
             if key_id:
                 keyring = dns.tsigkeyring.from_text({key_id: key_data})
@@ -287,15 +288,6 @@ def compare_domain_data(zone_correct, zone_tested):
         - a list containing a full decription of differences.
 
         Both lists are empty if zones are identical.
-
-        For example, return value when data differes:
-            ZoneDiff(full=["SOA record differs: 1234->4321",
-                           "a.example.com CNAME record is missing",
-                           "b.example.com A record is redundant",
-                           ...],
-                     record_types=set(["SOA", "CNAME", "A"]))
-        ,return value where both hashes where identical:
-        ZoneDiff(full=[], record_types=set([]))
     """
     ret = namedtuple('ZoneDiff', ['full', 'record_types'])
     ret.full = []
