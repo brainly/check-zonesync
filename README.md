@@ -2,11 +2,11 @@
 
 check_zonesync is a nagios plugin which can determine whether zones are
 replicated properly between master and slave DNS servers and if master/masters
-have properly loaded zones/are servering the most recent version of zone/zones.
+have properly loaded zones/are serving the most recent version of zone/zones.
 
 ## Installation
 
-In order to run check_zonesync you need to following dependencies installed:
+In order to run check_zonesync you need to have following dependencies installed:
 - pymisc (https://github.com/vespian/pymisc)
 - python >=3.2 (not tested on earlier versions)
 - python3-yaml
@@ -21,7 +21,7 @@ be found here: https://wiki.debian.org/Python/Pybuild
 The tool assumes that for each zone, file pointed by zonedata argument has the
 correct and the most up2date zone information. It is parsed using dnspython
 python module and stored in scripts memory. Then, script connects first to DNS
-masters defined in his config file and requests AXFR transfer. If the data rece-
+masters defined in its config file and requests AXFR transfer. If the data rece-
 ived from master differs from the one obtained from file, script assumes that
 slaves do not have correct data either and returns warning/critical message to
 the monitoring system. If the data is correct, the script requests AXFR zone
