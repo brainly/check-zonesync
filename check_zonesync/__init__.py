@@ -50,10 +50,11 @@ class ZoneParseFailed(RecoverableException):
     pass
 
 
-def parse_command_line():
+def parse_command_line(script_name, args):
     parser = argparse.ArgumentParser(
         description='Zone replication synchronization check.',
         epilog="Author: Pawel Rozlach <pawel.rozlach@brainly.com>",
+        prog=script_name,
         add_help=True,)
     parser.add_argument(
         '--version',
@@ -75,7 +76,7 @@ def parse_command_line():
         required=False,
         help="Log to stderr instead of syslog")
 
-    args = parser.parse_args()
+    args = parser.parse_args(args=args)
     return {'std_err': args.std_err,
             'verbose': args.verbose,
             'config_file': args.config_file,

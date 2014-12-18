@@ -14,9 +14,9 @@
 # the License.
 
 import check_zonesync
-
+import sys
 
 if __name__ == '__main__':
-    args_dict = check_zonesync.parse_command_line()
-
+    args_dict = check_zonesync.parse_command_line(script_name=sys.argv[0],
+                                                  args=sys.argv[1:])
     check_zonesync.main(**args_dict)
