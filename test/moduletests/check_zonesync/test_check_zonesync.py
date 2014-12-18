@@ -17,9 +17,10 @@
 # Global imports:
 import mock
 import os
-import subprocess
+import pymisc
 import sys
 import unittest
+import dns
 
 # To perform local imports first we need to fix PYTHONPATH:
 pwd = os.path.abspath(os.path.dirname(__file__))
@@ -29,9 +30,11 @@ sys.path.append(os.path.abspath(pwd + '/../../modules/'))
 import file_paths as paths
 import check_zonesync
 
+
 class TestCheckZoneSync(unittest.TestCase):
 
     # Used by side effects:
+
     @staticmethod
     def _terminate_script(*unused):
         raise SystemExit(0)
@@ -50,7 +53,93 @@ class TestCheckZoneSync(unittest.TestCase):
 
         return func
 
+    def test_argument_parsing(self):
+        ret = check_zonesync.parse_command_line(script_name="test-scriptname",
+                                                args=["-c", "/path/to/test", "--verbose"])
 
+        self.assertEqual({'config_file': '/path/to/test',
+                          'std_err': False,
+                          'verbose': True},
+                         ret)
+
+        ret = check_zonesync.parse_command_line(script_name="other-scriptname",
+                                                args=["-c", "/path/to/test", "-s"])
+
+        self.assertEqual({'config_file': '/path/to/test',
+                          'std_err': True,
+                          'verbose': False},
+                         ret)
+
+        ret = check_zonesync.parse_command_line(script_name="other-scriptname",
+                                                args=["-c", "/path/to/other/test"])
+
+        self.assertEqual({'config_file': '/path/to/other/test',
+                          'std_err': False,
+                          'verbose': False},
+                         ret)
+
+    @mock.patch('dns.tsigkeyring.from_text')
+    @mock.patch('dns.zone.from_xfr')
+    @mock.patch('dns.query.xfr')
+    def test_zone_data_fetch(self, DNSQueryXfrMock, DNSZoneFromXfrMock,
+                             DNSKeyringFromTextMock):
+
+        # Check if input argument sanity is checked:
+        with self.assertRaises(pymisc.script.FatalException):
+            check_zonesync.fetch_domain_data(zone_file="/path/to/zonefile",
+                                             host="example.com")
+
+        # Check file zone parsing:
+        with self.assertRaises(check_zonesync.ZoneParseFailed):
+            check_zonesync.fetch_domain_data(zone_file=paths.TEST_ZONE_BAD)
+
+        check_zonesync.fetch_domain_data(zone_file=paths.TEST_ZONE_GOOD)
+
+        # Check AXFR zone parsing:
+        DNSKeyringFromTextMock.return_value = "test-keyring"
+        DNSQueryXfrMock.return_value = "DNSQueryXfrMock teststring"
+        DNSZoneFromXfrMock.return_value = "DNSZoneFromXfrMock teststring"
+
+        check_zonesync.fetch_domain_data(host="example-server.com",
+                                         zone_name="example.com",
+                                         port=53,
+                                         key_id="example.com-key_id",
+                                         key_data="1234567890",
+                                         key_algo="sample-algo",
+                                         )
+        self.assertEqual(mock.call(zone='example.com',
+                                   keyalgorithm='sample-algo',
+                                   keyring='test-keyring',
+                                   where='example-server.com',
+                                   keyname='example.com-key_id',
+                                   port=53),
+                         DNSQueryXfrMock.call_args)
+        DNSKeyringFromTextMock.reset_mock()
+        DNSQueryXfrMock.reset_mock()
+        DNSZoneFromXfrMock.reset_mock()
+
+        # ...without keys:
+        check_zonesync.fetch_domain_data(host="example-server.com",
+                                         zone_name="example.com",
+                                         port=53,
+                                         )
+        self.assertEqual(mock.call(zone='example.com',
+                                   where='example-server.com',
+                                   port=53,
+                                   keyalgorithm=None,
+                                   keyring=None,
+                                   keyname=None,),
+                         DNSQueryXfrMock.call_args)
+
+
+    def test_zone_comparing(self):
+        reference_zone =  dns.zone.from_file(paths.TEST_ZONE_GOOD)
+        test_zone =  dns.zone.from_file(paths.TEST_ZONE_GOOD)
+
+        # Both zones are the same:
+        ret = check_zonesync.compare_domain_data(reference_zone,test_zone)
+        self.assertEqual(ret.full, [])
+        self.assertEqual(ret.record_types, set([]))
 
 if __name__ == '__main__':
     unittest.main()

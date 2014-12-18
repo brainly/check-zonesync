@@ -22,6 +22,8 @@ _fabric_base_dir = op.join(_main_dir, 'fabric/')
 
 #Configfile location
 TEST_CONFIG_FILE = op.join(_fabric_base_dir, 'check-zonesync.yml')
+TEST_ZONE_BAD = op.join(_fabric_base_dir, 'localdomain-bad.zone')
+TEST_ZONE_GOOD = op.join(_fabric_base_dir, 'localdomain-good.zone')
 
 #Test lockfile location:
 TEST_LOCKFILE = op.join(_fabric_base_dir, 'filelock.pid')
