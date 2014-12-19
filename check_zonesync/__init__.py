@@ -113,12 +113,12 @@ def _verify_host_data(host_hash, zone, host_name):
             msg.append('Zonehost {0} from zone {1} has malformed IP: {2}.'.format(
                 host_name, zone, ip))
     else:
-        msg.append('Zonehost {0} from zone {1} '.format(zone) +
+        msg.append('Zonehost {0} from zone {1} '.format(host_name, zone) +
                    'does not have mandatory "ip" field.')
 
     if 'port' in host_hash:
         port = host_hash['port']
-        if not isinstance(port, int) or port < 1:
+        if not isinstance(port, int) or port < 1 or port > 65535:
             msg.append('Zonehost {0} of zone {1} '.format(host_name, zone) +
                        'has malformed port: {0}.'.format(port))
 
@@ -161,7 +161,7 @@ def _verify_conf(conf_hash):
     timeout = conf_hash['timeout']
     zones = conf_hash['zones']
 
-    if timeout < 1:
+    if not isinstance(timeout, int) or timeout < 1:
         msg.append('Timeout should be >1.')
 
     if len(zones) < 1:
@@ -170,7 +170,7 @@ def _verify_conf(conf_hash):
     for zone in zones:
         # Zone name has correct format
         if not re.match(r'^(([a-z0-9]\-*[a-z0-9]*){1,63}\.?){1,255}$', zone):
-            msg.append('Zone {0} is not a valid domain name.'.format(zone))
+            msg.append('Zone "{0}" is not a valid domain name.'.format(zone))
 
         # Small shortcut:
         def is_master(hostname):
@@ -194,7 +194,7 @@ def _verify_conf(conf_hash):
         # 1) one master and "zone_data" section specified in the config file
         # 2) two or more hosts if "zone_data" was not provided
         if 'zonedata' not in zones[zone] and len(zones[zone]['zonehosts']) < 2:
-            msg.append('Zone {0} should have at least'.format(zone) +
+            msg.append('Zone "{0}" should have at least'.format(zone) +
                        ' two masters or a slave and a master if zone_data' +
                        ' is not provided')
 
@@ -202,7 +202,7 @@ def _verify_conf(conf_hash):
         if 'zonedata' in zones[zone]:
             if not (os.path.exists(zones[zone]['zonedata'])
                     and os.access(zones[zone]['zonedata'], os.R_OK)):
-                msg.append("Zone's {0} zonedata file is not".format(zone) +
+                msg.append("Zone's '{0}' zonedata file is not ".format(zone) +
                            "accessible or cannot be read")
     return msg
 
@@ -351,9 +351,7 @@ def compare_domain_data(zone_correct, zone_tested):
                     ret.record_types.add(record_type)
                     ret.full.append("{0} '{1}':{2} is redundant".format(
                                     record_type, record_name, str(rdata)))
-                else:
-                    # "Entry correct" case has already been covered:
-                    pass
+                # "Entry correct" case has already been covered:
 
     return ret
 
