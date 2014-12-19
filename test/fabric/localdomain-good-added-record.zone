@@ -16,3 +16,4 @@ mail			IN CNAME	gw
 proxy			IN MX		10 ASPMX.L.GOOGLE.COM.
 proxy			IN MX		20 ALT1.ASPMX.L.GOOGLE.COM.
 other           IN TXT      "this is a sample text"
+extra-record    IN MX       40 example-mx.com.

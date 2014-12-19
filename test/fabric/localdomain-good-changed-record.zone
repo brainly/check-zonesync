@@ -11,7 +11,7 @@ $TTL 1600
 
 @	    	    IN NS	    ns
 gw				IN A		127.0.0.10
-ns				IN A		127.0.100.5
+ns				IN A		1.2.3.3
 mail			IN CNAME	gw
 proxy			IN MX		10 ASPMX.L.GOOGLE.COM.
 proxy			IN MX		20 ALT1.ASPMX.L.GOOGLE.COM.

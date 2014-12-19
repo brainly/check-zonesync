@@ -24,6 +24,10 @@ _fabric_base_dir = op.join(_main_dir, 'fabric/')
 TEST_CONFIG_FILE = op.join(_fabric_base_dir, 'check-zonesync.yml')
 TEST_ZONE_BAD = op.join(_fabric_base_dir, 'localdomain-bad.zone')
 TEST_ZONE_GOOD = op.join(_fabric_base_dir, 'localdomain-good.zone')
+TEST_ZONE_GOOD_SOA_DIFFERS = op.join(_fabric_base_dir, 'localdomain-good-soa-differs.zone')
+TEST_ZONE_GOOD_ADDED_RECORD = op.join(_fabric_base_dir, 'localdomain-good-added-record.zone')
+TEST_ZONE_GOOD_DELETED_RECORD = op.join(_fabric_base_dir, 'localdomain-good-deleted-record.zone')
+TEST_ZONE_GOOD_CHANGED_RECORD = op.join(_fabric_base_dir, 'localdomain-good-changed-record.zone')
 
 #Test lockfile location:
 TEST_LOCKFILE = op.join(_fabric_base_dir, 'filelock.pid')

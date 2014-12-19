@@ -2,7 +2,7 @@ $ORIGIN localdomain.
 $TTL 1600
 
 @               IN SOA	    ns dnsmaster.localdomain. (
-                            2014121101 ; serial
+                            2014010101 ; serial
                             1000 ; refresh
                             2000 ; retry
                             3000 ; expiry

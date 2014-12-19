@@ -100,6 +100,7 @@ class TestCheckZoneSync(unittest.TestCase):
         DNSQueryXfrMock.return_value = "DNSQueryXfrMock teststring"
         DNSZoneFromXfrMock.return_value = "DNSZoneFromXfrMock teststring"
 
+        # With a key:
         check_zonesync.fetch_domain_data(host="example-server.com",
                                          zone_name="example.com",
                                          port=53,
@@ -118,7 +119,7 @@ class TestCheckZoneSync(unittest.TestCase):
         DNSQueryXfrMock.reset_mock()
         DNSZoneFromXfrMock.reset_mock()
 
-        # ...without keys:
+        # ... and without key:
         check_zonesync.fetch_domain_data(host="example-server.com",
                                          zone_name="example.com",
                                          port=53,
@@ -134,12 +135,37 @@ class TestCheckZoneSync(unittest.TestCase):
 
     def test_zone_comparing(self):
         reference_zone =  dns.zone.from_file(paths.TEST_ZONE_GOOD)
-        test_zone =  dns.zone.from_file(paths.TEST_ZONE_GOOD)
 
         # Both zones are the same:
+        test_zone =  dns.zone.from_file(paths.TEST_ZONE_GOOD)
         ret = check_zonesync.compare_domain_data(reference_zone,test_zone)
-        self.assertEqual(ret.full, [])
         self.assertEqual(ret.record_types, set([]))
+        self.assertEqual(ret.full, [])
+
+        # SOA differs:
+        test_zone =  dns.zone.from_file(paths.TEST_ZONE_GOOD_SOA_DIFFERS)
+        ret = check_zonesync.compare_domain_data(reference_zone,test_zone)
+        self.assertEqual(ret.record_types, set(["SOA"]))
+        self.assertEqual(len(ret.full), 2)
+
+        # Missing record:
+        test_zone =  dns.zone.from_file(paths.TEST_ZONE_GOOD_DELETED_RECORD)
+        ret = check_zonesync.compare_domain_data(reference_zone,test_zone)
+        self.assertEqual(ret.record_types, set(["CNAME"]))
+        self.assertEqual(len(ret.full), 1)
+
+        # Changed record:
+        test_zone =  dns.zone.from_file(paths.TEST_ZONE_GOOD_CHANGED_RECORD)
+        ret = check_zonesync.compare_domain_data(reference_zone,test_zone)
+        self.assertEqual(ret.record_types, set(["A"]))
+        self.assertEqual(len(ret.full), 2)
+
+        # Added record:
+        test_zone =  dns.zone.from_file(paths.TEST_ZONE_GOOD_ADDED_RECORD)
+        ret = check_zonesync.compare_domain_data(reference_zone,test_zone)
+        self.assertEqual(ret.record_types, set(['MX']))
+        self.assertEqual(len(ret.full), 1)
+
 
 if __name__ == '__main__':
     unittest.main()
