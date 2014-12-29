@@ -129,9 +129,6 @@ The script's source is well documented - please consult it in case of any
 ambiguities
 
 ## Testing
-
-FIXME - write more tests!
-
 Currenlty the unittest python library is used to perform all the testing. In
 test/ directory you can find:
 - modules/ - modules used by unittests
