@@ -23,6 +23,7 @@ import sys
 import unittest
 import dns
 from pymisc.script import ScriptConfiguration
+from collections import namedtuple
 
 # To perform local imports first we need to fix PYTHONPATH:
 pwd = os.path.abspath(os.path.dirname(__file__))
@@ -292,7 +293,7 @@ class TestCheckZoneSync(unittest.TestCase):
     @mock.patch('check_zonesync.ScriptTimeout')
     @mock.patch('check_zonesync.ScriptStatus')
     def test_main_logic(self, ScriptStatusMock, ScriptTimeoutMock, ScriptLockMock,
-                        VerifyConfMock, FetchDomainDataMock, CompareDomainData,
+                        VerifyConfMock, FetchDomainDataMock, CompareDomainDataMock,
                         SysExitMock, *unused):
 
         # For now we give OK on everything:
@@ -344,27 +345,93 @@ class TestCheckZoneSync(unittest.TestCase):
         ScriptStatusMock.update.reset_mock()
 
         # Problems with AXFR zone transfers:
-        def raise_transfererror(zone_name, host, port, key_id, key_data,
-                                key_algo, *unused_p, **unused_kw):
-            if not unused_p and not unused_kw:
-                raise check_zonesync.ZoneTransferFailed
+        def raise_transfererror(zone_name=None,
+                                zone_file=None,
+                                host=None,
+                                port=None,
+                                key_id=None,
+                                key_data=None,
+                                key_algo=None):
+            if zone_name == 'test1.zone.pl' and \
+                    zone_file == '/tmp/example.com.zone':
+                # We are not testing this here:
+                pass
             else:
-                # With this test data it should not happen
-                self.fail("check_zonesync.fetch_domain_data called with "
-                          "non-zonetransfer arguments")
+                raise check_zonesync.ZoneTransferFailed()
         FetchDomainDataMock.side_effect = raise_transfererror
         with self.assertRaises(SystemExit):
-            import ipdb; ipdb.set_trace() # BREAKPOINT
             check_zonesync.main(paths.TEST_CONFIG_FILE)
         self.assertFalse(ScriptStatusMock.notify_immediate.called)
         self.assertTrue(ScriptStatusMock.notify_agregated.called)
         self.assertTrue(ScriptStatusMock.update.called)
-        all_updates_were_critical = all([x[0][0] == critical for x in ScriptStatusMock.update.call_args])
+        all_updates_were_critical = all([x[0][0] == 'critical'
+                                        for x in ScriptStatusMock.update.call_args_list])
         self.assertTrue(all_updates_were_critical)
         ScriptStatusMock.notify_agregated.reset_mock()
         ScriptStatusMock.notify_immediate.reset_mock()
         ScriptStatusMock.update.reset_mock()
 
+        # No master host and no zonedata provided:
+        def raise_transfererror(zone_name=None,
+                                zone_file=None,
+                                host=None,
+                                port=None,
+                                key_id=None,
+                                key_data=None,
+                                key_algo=None):
+            if zone_name == 'test1.zone.pl' and zone_file == '/tmp/example.com.zone':
+                # We are not testing this here:
+                pass
+            elif host in ['master1', 'master2']:
+                # These we want out:
+                raise check_zonesync.ZoneTransferFailed()
+            else:
+                pass
+        FetchDomainDataMock.side_effect = raise_transfererror
+        with self.assertRaises(SystemExit):
+            check_zonesync.main(paths.TEST_NOZONEFILE_CONFIG_FILE)
+        self.assertFalse(ScriptStatusMock.notify_immediate.called)
+        self.assertTrue(ScriptStatusMock.notify_agregated.called)
+        self.assertTrue(ScriptStatusMock.update.called)
+        all_updates_were_critical = all([x[0][0] == 'critical'
+                                         for x in ScriptStatusMock.update.call_args_list])
+        self.assertTrue(all_updates_were_critical)
+        ScriptStatusMock.notify_agregated.reset_mock()
+        ScriptStatusMock.notify_immediate.reset_mock()
+        ScriptStatusMock.update.reset_mock()
+        FetchDomainDataMock.reset_mock()
+        FetchDomainDataMock.side_effect = None
+
+        # Only SOA records differ
+        ret = namedtuple('ZoneDiff', ['full', 'record_types'])
+        ret.record_types = set(['SOA', ])
+        ret.full = ['foo', 'bar', ]
+        CompareDomainDataMock.return_value = ret
+        FetchDomainDataMock.return_value = "fooBar"
+        with self.assertRaises(SystemExit):
+            check_zonesync.main(paths.TEST_CONFIG_FILE)
+        self.assertFalse(ScriptStatusMock.notify_immediate.called)
+        self.assertTrue(ScriptStatusMock.notify_agregated.called)
+        self.assertTrue(ScriptStatusMock.update.called)
+        all_updates_were_critical = all([x[0][0] == 'warn'
+                                         for x in ScriptStatusMock.update.call_args_list])
+        self.assertTrue(all_updates_were_critical)
+        ScriptStatusMock.notify_agregated.reset_mock()
+        ScriptStatusMock.notify_immediate.reset_mock()
+        ScriptStatusMock.update.reset_mock()
+        CompareDomainDataMock.reset_mock()
+
+        # Records differ
+        ret.record_types = set(['SOA', 'A'])
+        ret.full = ['foo', 'bar', ]
+        with self.assertRaises(SystemExit):
+            check_zonesync.main(paths.TEST_CONFIG_FILE)
+        self.assertFalse(ScriptStatusMock.notify_immediate.called)
+        self.assertTrue(ScriptStatusMock.notify_agregated.called)
+        self.assertTrue(ScriptStatusMock.update.called)
+        all_updates_were_critical = all([x[0][0] == 'critical'
+                                         for x in ScriptStatusMock.update.call_args_list])
+        self.assertTrue(all_updates_were_critical)
 
 if __name__ == '__main__':
     unittest.main()

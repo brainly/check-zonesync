@@ -22,6 +22,7 @@ _fabric_base_dir = op.join(_main_dir, 'fabric/')
 
 #Configfile location
 TEST_CONFIG_FILE = op.join(_fabric_base_dir, 'check-zonesync.yml')
+TEST_NOZONEFILE_CONFIG_FILE = op.join(_fabric_base_dir, 'check-zonesync-nozonefile.yml')
 TEST_ZONE_BAD = op.join(_fabric_base_dir, 'localdomain-bad.zone')
 TEST_ZONE_GOOD = op.join(_fabric_base_dir, 'localdomain-good.zone')
 TEST_ZONE_GOOD_SOA_DIFFERS = op.join(_fabric_base_dir, 'localdomain-good-soa-differs.zone')
