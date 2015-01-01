@@ -34,9 +34,8 @@ import file_paths as paths
 import check_zonesync
 
 
-class TestCheckZoneSync(unittest.TestCase):
-
-    def test_argument_parsing(self):
+class TestArgumentParsing(unittest.TestCase):
+    def test_verbose_flag(self):
         ret = check_zonesync.parse_command_line(script_name="test-scriptname",
                                                 args=["-c", "/path/to/test",
                                                       "--verbose"])
@@ -46,6 +45,7 @@ class TestCheckZoneSync(unittest.TestCase):
                           'verbose': True},
                          ret)
 
+    def test_stderr_flag(self):
         ret = check_zonesync.parse_command_line(script_name="other-scriptname",
                                                 args=["-c", "/path/to/test", "-s"])
 
@@ -54,6 +54,7 @@ class TestCheckZoneSync(unittest.TestCase):
                           'verbose': False},
                          ret)
 
+    def test_minimal_invocation(self):
         ret = check_zonesync.parse_command_line(script_name="other-scriptname",
                                                 args=["-c", "/path/to/other/test"])
 
@@ -62,29 +63,34 @@ class TestCheckZoneSync(unittest.TestCase):
                           'verbose': False},
                          ret)
 
-    @mock.patch('dns.tsigkeyring.from_text')
-    @mock.patch('dns.zone.from_xfr')
-    @mock.patch('dns.query.xfr')
-    def test_zone_data_fetch(self, DNSQueryXfrMock, DNSZoneFromXfrMock,
-                             DNSKeyringFromTextMock):
 
-        # Check if input argument sanity is checked:
+@mock.patch('dns.tsigkeyring.from_text')
+@mock.patch('dns.zone.from_xfr')
+@mock.patch('dns.query.xfr')
+class TestZoneDataFetch(unittest.TestCase):
+    def test_input_argument_sanity_checking(self, DNSQueryXfrMock,
+                                            DNSZoneFromXfrMock,
+                                            DNSKeyringFromTextMock):
+
         with self.assertRaises(pymisc.script.FatalException):
             check_zonesync.fetch_domain_data(zone_file="/path/to/zonefile",
                                              host="example.com")
 
-        # Check file zone parsing:
+    def test_zone_file_parsing(self, DNSQueryXfrMock,
+                               DNSZoneFromXfrMock,
+                               DNSKeyringFromTextMock):
+
         with self.assertRaises(check_zonesync.ZoneParseFailed):
             check_zonesync.fetch_domain_data(zone_file=paths.TEST_ZONE_BAD)
 
         check_zonesync.fetch_domain_data(zone_file=paths.TEST_ZONE_GOOD)
 
-        # Check AXFR zone parsing:
-        DNSKeyringFromTextMock.return_value = "test-keyring"
-        DNSQueryXfrMock.return_value = "DNSQueryXfrMock teststring"
-        DNSZoneFromXfrMock.return_value = "DNSZoneFromXfrMock teststring"
+    def test_zone_axfr_parsing_with_key(self, DNSQueryXfrMock,
+                                        DNSZoneFromXfrMock,
+                                        DNSKeyringFromTextMock):
 
-        # With a key:
+        DNSKeyringFromTextMock.return_value = "test-keyring"
+
         check_zonesync.fetch_domain_data(host="example-server.com",
                                          zone_name="example.com",
                                          port=53,
@@ -92,240 +98,253 @@ class TestCheckZoneSync(unittest.TestCase):
                                          key_data="1234567890",
                                          key_algo="sample-algo",
                                          )
-        self.assertEqual(mock.call(zone='example.com',
-                                   keyalgorithm='sample-algo',
-                                   keyring='test-keyring',
-                                   where='example-server.com',
-                                   keyname='example.com-key_id',
-                                   port=53),
-                         DNSQueryXfrMock.call_args)
-        DNSKeyringFromTextMock.reset_mock()
-        DNSQueryXfrMock.reset_mock()
-        DNSZoneFromXfrMock.reset_mock()
+        DNSQueryXfrMock.assert_called_once_with(zone='example.com',
+                                                keyalgorithm='sample-algo',
+                                                keyring='test-keyring',
+                                                where='example-server.com',
+                                                keyname='example.com-key_id',
+                                                port=53)
 
-        # ... and without key:
+    def test_zone_axfr_parsing_without_key(self, DNSQueryXfrMock,
+                                           DNSZoneFromXfrMock,
+                                           DNSKeyringFromTextMock):
+
         check_zonesync.fetch_domain_data(host="example-server.com",
                                          zone_name="example.com",
                                          port=53,
                                          )
-        self.assertEqual(mock.call(zone='example.com',
-                                   where='example-server.com',
-                                   port=53,
-                                   keyalgorithm=None,
-                                   keyring=None,
-                                   keyname=None,),
-                         DNSQueryXfrMock.call_args)
+        DNSQueryXfrMock.assert_called_once_with(zone='example.com',
+                                                where='example-server.com',
+                                                port=53,
+                                                keyalgorithm=None,
+                                                keyring=None,
+                                                keyname=None,)
 
-    def test_zone_comparing(self):
-        reference_zone = dns.zone.from_file(paths.TEST_ZONE_GOOD)
 
-        # Both zones are the same:
+class TestZoneComparing(unittest.TestCase):
+    def setUp(self):
+        self.reference_zone = dns.zone.from_file(paths.TEST_ZONE_GOOD)
+
+    def test_zones_are_the_same(self):
         test_zone = dns.zone.from_file(paths.TEST_ZONE_GOOD)
-        ret = check_zonesync.compare_domain_data(reference_zone, test_zone)
+        ret = check_zonesync.compare_domain_data(self.reference_zone, test_zone)
         self.assertEqual(ret.record_types, set([]))
         self.assertEqual(ret.full, [])
 
-        # SOA differs:
+    def test_soa_differs(self):
         test_zone = dns.zone.from_file(paths.TEST_ZONE_GOOD_SOA_DIFFERS)
-        ret = check_zonesync.compare_domain_data(reference_zone, test_zone)
+        ret = check_zonesync.compare_domain_data(self.reference_zone, test_zone)
         self.assertEqual(ret.record_types, set(["SOA"]))
         self.assertEqual(len(ret.full), 2)
 
-        # Missing record:
+    def test_records_missing(self):
         test_zone = dns.zone.from_file(paths.TEST_ZONE_GOOD_DELETED_RECORD)
-        ret = check_zonesync.compare_domain_data(reference_zone, test_zone)
+        ret = check_zonesync.compare_domain_data(self.reference_zone, test_zone)
         self.assertEqual(ret.record_types, set(["CNAME"]))
         self.assertEqual(len(ret.full), 1)
 
-        # Changed record:
+    def test_records_changed(self):
         test_zone = dns.zone.from_file(paths.TEST_ZONE_GOOD_CHANGED_RECORD)
-        ret = check_zonesync.compare_domain_data(reference_zone, test_zone)
+        ret = check_zonesync.compare_domain_data(self.reference_zone, test_zone)
         self.assertEqual(ret.record_types, set(["A"]))
         self.assertEqual(len(ret.full), 2)
 
-        # Added record:
+    def test_records_added(self):
         test_zone = dns.zone.from_file(paths.TEST_ZONE_GOOD_ADDED_RECORD)
-        ret = check_zonesync.compare_domain_data(reference_zone, test_zone)
+        ret = check_zonesync.compare_domain_data(self.reference_zone, test_zone)
         self.assertEqual(ret.record_types, set(['MX']))
         self.assertEqual(len(ret.full), 1)
 
-    def test_host_data_verification(self):
-        # Let's prepare correct data first:
-        host_name = "example-host"
-        zone = "example.com"
-        good_hash = {"ip": "1.2.3.4",
+
+class TestHostDataVerification(unittest.TestCase):
+    def setUp(self):
+        self.host_name = "example-host"
+        self.zone = "example.com"
+        self.hash = {"ip": "1.2.3.4",
                      "port": 53,
                      "key-id": "example-key",
                      "key-data": "1234567890abcdef",
                      "master": True,
                      }
 
-        # Test if correct hash passes:
-        msg = check_zonesync._verify_host_data(host_hash=good_hash,
-                                               zone=zone,
-                                               host_name=host_name)
+    def test_verify_host_data_correct(self):
+        msg = check_zonesync._verify_host_data(host_hash=self.hash,
+                                               zone=self.zone,
+                                               host_name=self.host_name)
         self.assertEqual(msg, [])
 
-        # Test if bad IP fails:
-        bad_hash = good_hash.copy()
-        bad_hash["ip"] = "1000.1.2.3.4"
-        msg = check_zonesync._verify_host_data(host_hash=bad_hash,
-                                               zone=zone,
-                                               host_name=host_name)
+    def test_verify_host_data_bad_ip(self):
+        self.hash["ip"] = "1000.1.2.3.4"
+        msg = check_zonesync._verify_host_data(host_hash=self.hash,
+                                               zone=self.zone,
+                                               host_name=self.host_name)
         self.assertEqual(len(msg), 1)
 
-        # Test if missing IP fails:
-        bad_hash = good_hash.copy()
-        del bad_hash["ip"]
-        msg = check_zonesync._verify_host_data(host_hash=bad_hash,
-                                               zone=zone,
-                                               host_name=host_name)
+    def test_verify_host_data_missing_ip(self):
+        del self.hash["ip"]
+        msg = check_zonesync._verify_host_data(host_hash=self.hash,
+                                               zone=self.zone,
+                                               host_name=self.host_name)
         self.assertEqual(len(msg), 1)
 
-        # Test if malformed port fails:
-        bad_hash = good_hash.copy()
-        bad_hash["port"] = "53."
-        msg = check_zonesync._verify_host_data(host_hash=bad_hash,
-                                               zone=zone,
-                                               host_name=host_name)
+    def test_verify_host_data_malformed_port(self):
+        self.hash["port"] = "53."
+        msg = check_zonesync._verify_host_data(host_hash=self.hash,
+                                               zone=self.zone,
+                                               host_name=self.host_name)
         self.assertEqual(len(msg), 1)
 
-        # Test incompleate key set:
-        bad_hash = good_hash.copy()
-        del bad_hash["key-data"]
-        msg = check_zonesync._verify_host_data(host_hash=bad_hash,
-                                               zone=zone,
-                                               host_name=host_name)
+    def test_verify_host_data_incomplete_key_set(self):
+        del self.hash["key-data"]
+        msg = check_zonesync._verify_host_data(host_hash=self.hash,
+                                               zone=self.zone,
+                                               host_name=self.host_name)
         self.assertEqual(len(msg), 1)
 
-        # Test hostdata without keys:
-        bad_hash = good_hash.copy()
-        del bad_hash["key-id"]
-        del bad_hash["key-data"]
-        msg = check_zonesync._verify_host_data(host_hash=bad_hash,
-                                               zone=zone,
-                                               host_name=host_name)
+    def test_verify_host_data_without_keys(self):
+        del self.hash["key-id"]
+        del self.hash["key-data"]
+        msg = check_zonesync._verify_host_data(host_hash=self.hash,
+                                               zone=self.zone,
+                                               host_name=self.host_name)
         self.assertEqual(msg, [])
 
-        # Test malformed key-id:
-        bad_hash = good_hash.copy()
-        bad_hash["key-id"] = 'this is not a proper key'
-        msg = check_zonesync._verify_host_data(host_hash=bad_hash,
-                                               zone=zone,
-                                               host_name=host_name)
+    def test_verify_host_data_malformed_key_id(self):
+        self.hash["key-id"] = 'this is not a proper key'
+        msg = check_zonesync._verify_host_data(host_hash=self.hash,
+                                               zone=self.zone,
+                                               host_name=self.host_name)
         self.assertEqual(len(msg), 1)
 
-        # Test malformed key-data:
-        bad_hash = good_hash.copy()
-        bad_hash["key-data"] = 'aasfasdfdasf-asdfdas dasf'
-        msg = check_zonesync._verify_host_data(host_hash=bad_hash,
-                                               zone=zone,
-                                               host_name=host_name)
+    def test_verify_host_data_malformed_key_data(self):
+        self.hash["key-data"] = 'aasfasdfdasf-asdfdas dasf'
+        msg = check_zonesync._verify_host_data(host_hash=self.hash,
+                                               zone=self.zone,
+                                               host_name=self.host_name)
         self.assertEqual(len(msg), 1)
 
-    @mock.patch('os.path.exists')
-    @mock.patch('os.access')
-    @mock.patch('check_zonesync._verify_host_data')
-    def test_configuration_verification(self, VerifyHostDataMock, OsAccessMock,
-                                        OsPathExistsMock):
+
+class TestConfigurationVerification(unittest.TestCase):
+    def setUp(self):
         # Load test configuration
         ScriptConfiguration.load_config(paths.TEST_CONFIG_FILE)
-        conf_hash = ScriptConfiguration.get_config()
+        self.conf_hash = ScriptConfiguration.get_config()
 
-        # For now always OK:
-        VerifyHostDataMock.return_value = []
-        OsPathExistsMock.return_value = True
-        OsAccessMock.return_value = True
+        self.mocks = {}
+        for patched in ['check_zonesync._verify_host_data',
+                        'os.access',
+                        'os.path.exists', ]:
+            patcher = mock.patch(patched)
+            self.mocks[patched] = patcher.start()
+            self.addCleanup(patcher.stop)
 
-        # Test proper configuration:
-        msg = check_zonesync._verify_conf(conf_hash)
+        self.mocks["check_zonesync._verify_host_data"].return_value = []
+        self.mocks["os.access"].return_value = True
+        self.mocks["os.path.exists"].return_value = True
+
+    def test_proper_configuration(self):
+        msg = check_zonesync._verify_conf(self.conf_hash)
         self.assertEqual(msg, [])
 
-        # Test malformed timeout:
-        bad_conf = copy.deepcopy(conf_hash.copy())
-        bad_conf['timeout'] = 'not an integer'
-        msg = check_zonesync._verify_conf(bad_conf)
+    def test_malformed_timeout(self):
+        self.conf_hash['timeout'] = 'not an integer'
+
+        msg = check_zonesync._verify_conf(self.conf_hash)
         self.assertEqual(len(msg), 1)
 
-        # Test empty zone list:
-        bad_conf = copy.deepcopy(conf_hash.copy())
-        bad_conf['zones'] = {}
-        msg = check_zonesync._verify_conf(bad_conf)
+    def test_empty_zone_list(self):
+        self.conf_hash['zones'] = {}
+
+        msg = check_zonesync._verify_conf(self.conf_hash)
         self.assertEqual(len(msg), 1)
 
-        # Test malformed zone name:
-        bad_conf = copy.deepcopy(conf_hash.copy())
-        bad_conf['zones']['a bad zone'] = bad_conf[
+    def test_malformed_zone_name(self):
+        self.conf_hash['zones']['a bad zone'] = self.conf_hash[
             'zones'].pop('test1.zone.pl')
-        msg = check_zonesync._verify_conf(bad_conf)
+
+        msg = check_zonesync._verify_conf(self.conf_hash)
         self.assertEqual(len(msg), 1)
 
-        # Test zone without masters:
-        bad_conf = copy.deepcopy(conf_hash.copy())
-        del bad_conf['zones']['test1.zone.pl']['zonehosts']['master1']
-        del bad_conf['zones']['test1.zone.pl']['zonehosts']['master2']
-        msg = check_zonesync._verify_conf(bad_conf)
+    def test_zone_without_masters(self):
+        del self.conf_hash['zones']['test1.zone.pl']['zonehosts']['master1']
+        del self.conf_hash['zones']['test1.zone.pl']['zonehosts']['master2']
+
+        msg = check_zonesync._verify_conf(self.conf_hash)
         self.assertEqual(len(msg), 1)
 
-        # Test zone without datafile:
-        bad_conf = copy.deepcopy(conf_hash.copy())
-        del bad_conf['zones']['test1.zone.pl']['zonedata']
-        del bad_conf['zones']['test1.zone.pl']['zonehosts']['master1']
-        del bad_conf['zones']['test1.zone.pl']['zonehosts']['slavehost1']
-        del bad_conf['zones']['test1.zone.pl']['zonehosts']['slavehost2']
-        del bad_conf['zones']['test1.zone.pl']['zonehosts']['slavehost3']
-        msg = check_zonesync._verify_conf(bad_conf)
+    def test_zone_without_datafile(self):
+        del self.conf_hash['zones']['test1.zone.pl']['zonedata']
+        del self.conf_hash['zones']['test1.zone.pl']['zonehosts']['master1']
+        # Removing slaves is also necessary
+        del self.conf_hash['zones']['test1.zone.pl']['zonehosts']['slavehost1']
+        del self.conf_hash['zones']['test1.zone.pl']['zonehosts']['slavehost2']
+        del self.conf_hash['zones']['test1.zone.pl']['zonehosts']['slavehost3']
+
+        msg = check_zonesync._verify_conf(self.conf_hash)
         self.assertEqual(len(msg), 1)
 
-        # Zone file does not exits:
-        OsPathExistsMock.return_value = False
-        msg = check_zonesync._verify_conf(conf_hash)
+    def test_zone_file_does_not_exists(self):
+        self.mocks["os.path.exists"].return_value = False
+
+        msg = check_zonesync._verify_conf(self.conf_hash)
         self.assertEqual(len(msg), 1)
 
-    @mock.patch('logging.warn')
-    @mock.patch('logging.info')
-    @mock.patch('logging.error')
-    @mock.patch('check_zonesync.sys.exit')
-    @mock.patch('check_zonesync.compare_domain_data')
-    @mock.patch('check_zonesync.fetch_domain_data')
-    @mock.patch('check_zonesync._verify_conf')
-    @mock.patch('check_zonesync.ScriptLock')
-    @mock.patch('check_zonesync.ScriptTimeout')
-    @mock.patch('check_zonesync.ScriptStatus')
-    def test_main_logic(self, ScriptStatusMock, ScriptTimeoutMock, ScriptLockMock,
-                        VerifyConfMock, FetchDomainDataMock, CompareDomainDataMock,
-                        SysExitMock, *unused):
 
-        # For now we give OK on everything:
+class TestMainLogic(unittest.TestCase):
+    def setUp(self):
+
+        self.mocks = {}
+        for patched in ['check_zonesync.ScriptStatus',
+                        'check_zonesync.ScriptTimeout',
+                        'check_zonesync.ScriptLock',
+                        'check_zonesync._verify_conf',
+                        'check_zonesync.fetch_domain_data',
+                        'check_zonesync.compare_domain_data',
+                        'check_zonesync.sys.exit',
+                        'logging.error',
+                        'logging.info',
+                        'logging.warn', ]:
+            patcher = mock.patch(patched)
+            self.mocks[patched] = patcher.start()
+            self.addCleanup(patcher.stop)
+
         def terminate_script(exit_status):
             raise SystemExit(exit_status)
-        SysExitMock.side_effect = terminate_script
-        VerifyConfMock.return_value = []
+        self.mocks["check_zonesync.sys.exit"].side_effect = terminate_script
+        self.mocks["check_zonesync._verify_conf"].return_value = []
 
         def terminate_script(*unused):
             raise SystemExit(216)
-        ScriptStatusMock.notify_immediate.side_effect = terminate_script
-        ScriptStatusMock.notify_agregated.side_effect = terminate_script
+        self.mocks["check_zonesync.ScriptStatus"].notify_immediate.side_effect = \
+            terminate_script
+        self.mocks["check_zonesync.ScriptStatus"].notify_agregated.side_effect = \
+            terminate_script
+        self.mocks["check_zonesync.fetch_domain_data"].return_value = "fooBar"
 
-        # All OK:
+        self.zonediff_ret = namedtuple('ZoneDiff', ['full', 'record_types'])
+        self.zonediff_ret.record_types = set()
+        self.zonediff_ret.full = []
+        self.mocks["check_zonesync.compare_domain_data"].return_value = self.zonediff_ret
+
+    def test_all_ok(self):
         with self.assertRaises(SystemExit):
             check_zonesync.main(paths.TEST_CONFIG_FILE)
-        self.assertFalse(ScriptStatusMock.notify_immediate.called)
-        ScriptStatusMock.notify_immediate.reset_mock()
-        ScriptStatusMock.notify_agregated.assert_called_once_with()
-        ScriptStatusMock.notify_agregated.reset_mock()
+        self.assertFalse(
+            self.mocks["check_zonesync.ScriptStatus"].notify_immediate.called)
+        self.mocks["check_zonesync.ScriptStatus"].notify_agregated.assert_called_once_with()
 
-        # Configuration issues:
-        VerifyConfMock.return_value = ["There is a problem with configuration"]
+    def test_configuration_issues(self):
+        self.mocks["check_zonesync._verify_conf"].return_value = \
+            ["There is a problem with configuration"]
+
         with self.assertRaises(SystemExit):
             check_zonesync.main(paths.TEST_CONFIG_FILE)
-        ScriptStatusMock.notify_immediate.assert_called_once_with(
+
+        self.mocks["check_zonesync.ScriptStatus"].notify_immediate.assert_called_once_with(
             'unknown',
             'Configuration file contains errors: There is a problem with configuration')
-        ScriptStatusMock.notify_immediate.reset_mock()
-        VerifyConfMock.return_value = []
 
-        # Problems parsing zone data:
+    def test_zone_data_parsing_problems(self):
         def raise_parserror(zone_name, zone_file, *unused_p, **unused_kw):
             if not unused_p and not unused_kw:
                 raise check_zonesync.ZoneParseFailed
@@ -333,18 +352,17 @@ class TestCheckZoneSync(unittest.TestCase):
                 # With this test data it should not happen
                 self.fail("check_zonesync.fetch_domain_data called with non-file"
                           " arguments")
-        FetchDomainDataMock.side_effect = raise_parserror
+        self.mocks["check_zonesync.fetch_domain_data"].side_effect = raise_parserror
+
         with self.assertRaises(SystemExit):
             check_zonesync.main(paths.TEST_CONFIG_FILE)
-        self.assertFalse(ScriptStatusMock.notify_immediate.called)
-        ScriptStatusMock.notify_agregated.assert_called_once_with()
-        ScriptStatusMock.update.assert_has_calls(
-            mock.call('critical', 'Failed to load zone file for zone test1.zone.pl: .'))
-        ScriptStatusMock.notify_agregated.reset_mock()
-        ScriptStatusMock.notify_immediate.reset_mock()
-        ScriptStatusMock.update.reset_mock()
 
-        # Problems with AXFR zone transfers:
+        self.assertFalse(self.mocks["check_zonesync.ScriptStatus"].notify_immediate.called)
+        self.mocks["check_zonesync.ScriptStatus"].notify_agregated.assert_called_once_with()
+        self.mocks["check_zonesync.ScriptStatus"].update.assert_has_calls(
+            mock.call('critical', 'Failed to load zone file for zone test1.zone.pl: .'))
+
+    def test_axfr_zone_transfer_problems(self):
         def raise_transfererror(zone_name=None,
                                 zone_file=None,
                                 host=None,
@@ -358,19 +376,20 @@ class TestCheckZoneSync(unittest.TestCase):
                 pass
             else:
                 raise check_zonesync.ZoneTransferFailed()
-        FetchDomainDataMock.side_effect = raise_transfererror
+        self.mocks["check_zonesync.fetch_domain_data"].side_effect = raise_transfererror
+
         with self.assertRaises(SystemExit):
             check_zonesync.main(paths.TEST_CONFIG_FILE)
-        self.assertFalse(ScriptStatusMock.notify_immediate.called)
-        ScriptStatusMock.notify_agregated.assert_called_once_with()
-        all_updates_were_critical = all([x[0][0] == 'critical'
-                                        for x in ScriptStatusMock.update.call_args_list])
-        self.assertTrue(all_updates_were_critical and len(ScriptStatusMock.update.call_args_list) > 0)
-        ScriptStatusMock.notify_agregated.reset_mock()
-        ScriptStatusMock.notify_immediate.reset_mock()
-        ScriptStatusMock.update.reset_mock()
 
-        # No master host and no zonedata provided:
+        self.assertFalse(self.mocks["check_zonesync.ScriptStatus"].notify_immediate.called)
+        self.mocks["check_zonesync.ScriptStatus"].notify_agregated.assert_called_once_with()
+        all_updates_were_critical = all([x[0][0] == 'critical'
+            for x in self.mocks["check_zonesync.ScriptStatus"].update.call_args_list])
+        self.assertTrue(
+            all_updates_were_critical and
+            len(self.mocks["check_zonesync.ScriptStatus"].update.call_args_list) > 0)
+
+    def test_no_masterhost_and_zonedata(self):
         def raise_transfererror(zone_name=None,
                                 zone_file=None,
                                 host=None,
@@ -378,7 +397,8 @@ class TestCheckZoneSync(unittest.TestCase):
                                 key_id=None,
                                 key_data=None,
                                 key_algo=None):
-            if zone_name == 'test1.zone.pl' and zone_file == '/tmp/example.com.zone':
+            if zone_name == 'test1.zone.pl' and \
+                    zone_file == '/tmp/example.com.zone':
                 # We are not testing this here:
                 pass
             elif host in ['master1', 'master2']:
@@ -386,48 +406,48 @@ class TestCheckZoneSync(unittest.TestCase):
                 raise check_zonesync.ZoneTransferFailed()
             else:
                 pass
-        FetchDomainDataMock.side_effect = raise_transfererror
+        self.mocks["check_zonesync.fetch_domain_data"].side_effect = \
+            raise_transfererror
+
         with self.assertRaises(SystemExit):
             check_zonesync.main(paths.TEST_NOZONEFILE_CONFIG_FILE)
-        self.assertFalse(ScriptStatusMock.notify_immediate.called)
-        ScriptStatusMock.notify_agregated.assert_called_once_with()
-        all_updates_were_critical = all([x[0][0] == 'critical'
-                                        for x in ScriptStatusMock.update.call_args_list])
-        self.assertTrue(all_updates_were_critical and len(ScriptStatusMock.update.call_args_list) > 0)
-        ScriptStatusMock.notify_agregated.reset_mock()
-        ScriptStatusMock.notify_immediate.reset_mock()
-        ScriptStatusMock.update.reset_mock()
-        FetchDomainDataMock.reset_mock()
-        FetchDomainDataMock.side_effect = None
 
-        # Only SOA records differ
-        ret = namedtuple('ZoneDiff', ['full', 'record_types'])
-        ret.record_types = set(['SOA', ])
-        ret.full = ['foo', 'bar', ]
-        CompareDomainDataMock.return_value = ret
-        FetchDomainDataMock.return_value = "fooBar"
+        self.assertFalse(
+            self.mocks["check_zonesync.ScriptStatus"].notify_immediate.called)
+        self.mocks["check_zonesync.ScriptStatus"].notify_agregated.assert_called_once_with()
+        all_updates_were_critical = all([x[0][0] == 'critical' for x in
+             self.mocks["check_zonesync.ScriptStatus"].update.call_args_list])
+        self.assertTrue(
+            all_updates_were_critical and
+            len(self.mocks["check_zonesync.ScriptStatus"].update.call_args_list) > 0)
+
+    def test_soa_records_differ(self):
+        self.zonediff_ret.record_types = set(['SOA', ])
+        self.zonediff_ret.full = ['foo', 'bar', ]
+
         with self.assertRaises(SystemExit):
             check_zonesync.main(paths.TEST_CONFIG_FILE)
-        self.assertFalse(ScriptStatusMock.notify_immediate.called)
-        ScriptStatusMock.notify_agregated.assert_called_once_with()
+
+        self.assertFalse(self.mocks["check_zonesync.ScriptStatus"].notify_immediate.called)
+        self.mocks["check_zonesync.ScriptStatus"].notify_agregated.assert_called_once_with()
         all_updates_were_critical = all([x[0][0] == 'warn'
-                                        for x in ScriptStatusMock.update.call_args_list])
-        self.assertTrue(all_updates_were_critical and len(ScriptStatusMock.update.call_args_list) > 0)
-        ScriptStatusMock.notify_agregated.reset_mock()
-        ScriptStatusMock.notify_immediate.reset_mock()
-        ScriptStatusMock.update.reset_mock()
-        CompareDomainDataMock.reset_mock()
+            for x in self.mocks["check_zonesync.ScriptStatus"].update.call_args_list])
+        self.assertTrue(all_updates_were_critical and
+            len(self.mocks["check_zonesync.ScriptStatus"].update.call_args_list) > 0)
 
-        # Records differ
-        ret.record_types = set(['SOA', 'A'])
-        ret.full = ['foo', 'bar', ]
+    def test_records_differ(self):
+        self.zonediff_ret.record_types = set(['SOA', 'A'])
+        self.zonediff_ret.full = ['foo', 'bar', ]
+
         with self.assertRaises(SystemExit):
             check_zonesync.main(paths.TEST_CONFIG_FILE)
-        self.assertFalse(ScriptStatusMock.notify_immediate.called)
-        ScriptStatusMock.notify_agregated.assert_called_once_with()
+
+        self.assertFalse(self.mocks["check_zonesync.ScriptStatus"].notify_immediate.called)
+        self.mocks["check_zonesync.ScriptStatus"].notify_agregated.assert_called_once_with()
         all_updates_were_critical = all([x[0][0] == 'critical'
-                                        for x in ScriptStatusMock.update.call_args_list])
-        self.assertTrue(all_updates_were_critical and len(ScriptStatusMock.update.call_args_list) > 0)
+            for x in self.mocks["check_zonesync.ScriptStatus"].update.call_args_list])
+        self.assertTrue(all_updates_were_critical and
+            len(self.mocks["check_zonesync.ScriptStatus"].update.call_args_list) > 0)
 
 if __name__ == '__main__':
     unittest.main()
