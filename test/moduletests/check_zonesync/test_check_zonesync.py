@@ -311,17 +311,17 @@ class TestCheckZoneSync(unittest.TestCase):
         with self.assertRaises(SystemExit):
             check_zonesync.main(paths.TEST_CONFIG_FILE)
         self.assertFalse(ScriptStatusMock.notify_immediate.called)
-        self.assertTrue(ScriptStatusMock.notify_agregated.called)
-        ScriptStatusMock.notify_agregated.reset_mock()
         ScriptStatusMock.notify_immediate.reset_mock()
+        ScriptStatusMock.notify_agregated.assert_called_once_with()
+        ScriptStatusMock.notify_agregated.reset_mock()
 
         # Configuration issues:
         VerifyConfMock.return_value = ["There is a problem with configuration"]
         with self.assertRaises(SystemExit):
             check_zonesync.main(paths.TEST_CONFIG_FILE)
-        self.assertTrue(ScriptStatusMock.notify_immediate.called)
-        self.assertEqual(ScriptStatusMock.notify_immediate.call_args[0][0],
-                         'unknown')
+        ScriptStatusMock.notify_immediate.assert_called_once_with(
+            'unknown',
+            'Configuration file contains errors: There is a problem with configuration')
         ScriptStatusMock.notify_immediate.reset_mock()
         VerifyConfMock.return_value = []
 
@@ -337,9 +337,9 @@ class TestCheckZoneSync(unittest.TestCase):
         with self.assertRaises(SystemExit):
             check_zonesync.main(paths.TEST_CONFIG_FILE)
         self.assertFalse(ScriptStatusMock.notify_immediate.called)
-        self.assertTrue(ScriptStatusMock.notify_agregated.called)
-        self.assertTrue(ScriptStatusMock.update.called)
-        self.assertEqual(ScriptStatusMock.update.call_args[0][0], 'critical')
+        ScriptStatusMock.notify_agregated.assert_called_once_with()
+        ScriptStatusMock.update.assert_has_calls(
+            mock.call('critical', 'Failed to load zone file for zone test1.zone.pl: .'))
         ScriptStatusMock.notify_agregated.reset_mock()
         ScriptStatusMock.notify_immediate.reset_mock()
         ScriptStatusMock.update.reset_mock()
@@ -362,11 +362,10 @@ class TestCheckZoneSync(unittest.TestCase):
         with self.assertRaises(SystemExit):
             check_zonesync.main(paths.TEST_CONFIG_FILE)
         self.assertFalse(ScriptStatusMock.notify_immediate.called)
-        self.assertTrue(ScriptStatusMock.notify_agregated.called)
-        self.assertTrue(ScriptStatusMock.update.called)
+        ScriptStatusMock.notify_agregated.assert_called_once_with()
         all_updates_were_critical = all([x[0][0] == 'critical'
                                         for x in ScriptStatusMock.update.call_args_list])
-        self.assertTrue(all_updates_were_critical)
+        self.assertTrue(all_updates_were_critical and len(ScriptStatusMock.update.call_args_list) > 0)
         ScriptStatusMock.notify_agregated.reset_mock()
         ScriptStatusMock.notify_immediate.reset_mock()
         ScriptStatusMock.update.reset_mock()
@@ -391,11 +390,10 @@ class TestCheckZoneSync(unittest.TestCase):
         with self.assertRaises(SystemExit):
             check_zonesync.main(paths.TEST_NOZONEFILE_CONFIG_FILE)
         self.assertFalse(ScriptStatusMock.notify_immediate.called)
-        self.assertTrue(ScriptStatusMock.notify_agregated.called)
-        self.assertTrue(ScriptStatusMock.update.called)
+        ScriptStatusMock.notify_agregated.assert_called_once_with()
         all_updates_were_critical = all([x[0][0] == 'critical'
-                                         for x in ScriptStatusMock.update.call_args_list])
-        self.assertTrue(all_updates_were_critical)
+                                        for x in ScriptStatusMock.update.call_args_list])
+        self.assertTrue(all_updates_were_critical and len(ScriptStatusMock.update.call_args_list) > 0)
         ScriptStatusMock.notify_agregated.reset_mock()
         ScriptStatusMock.notify_immediate.reset_mock()
         ScriptStatusMock.update.reset_mock()
@@ -411,11 +409,10 @@ class TestCheckZoneSync(unittest.TestCase):
         with self.assertRaises(SystemExit):
             check_zonesync.main(paths.TEST_CONFIG_FILE)
         self.assertFalse(ScriptStatusMock.notify_immediate.called)
-        self.assertTrue(ScriptStatusMock.notify_agregated.called)
-        self.assertTrue(ScriptStatusMock.update.called)
+        ScriptStatusMock.notify_agregated.assert_called_once_with()
         all_updates_were_critical = all([x[0][0] == 'warn'
-                                         for x in ScriptStatusMock.update.call_args_list])
-        self.assertTrue(all_updates_were_critical)
+                                        for x in ScriptStatusMock.update.call_args_list])
+        self.assertTrue(all_updates_were_critical and len(ScriptStatusMock.update.call_args_list) > 0)
         ScriptStatusMock.notify_agregated.reset_mock()
         ScriptStatusMock.notify_immediate.reset_mock()
         ScriptStatusMock.update.reset_mock()
@@ -427,11 +424,10 @@ class TestCheckZoneSync(unittest.TestCase):
         with self.assertRaises(SystemExit):
             check_zonesync.main(paths.TEST_CONFIG_FILE)
         self.assertFalse(ScriptStatusMock.notify_immediate.called)
-        self.assertTrue(ScriptStatusMock.notify_agregated.called)
-        self.assertTrue(ScriptStatusMock.update.called)
+        ScriptStatusMock.notify_agregated.assert_called_once_with()
         all_updates_were_critical = all([x[0][0] == 'critical'
-                                         for x in ScriptStatusMock.update.call_args_list])
-        self.assertTrue(all_updates_were_critical)
+                                        for x in ScriptStatusMock.update.call_args_list])
+        self.assertTrue(all_updates_were_critical and len(ScriptStatusMock.update.call_args_list) > 0)
 
 if __name__ == '__main__':
     unittest.main()
