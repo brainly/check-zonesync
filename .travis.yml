@@ -8,4 +8,4 @@ script: "./run_tests.py"
 before_script:
   - wget https://github.com/vespian/pymisc/archive/1.2.0.tar.gz -O /tmp/pymisc-1.2.0.tar.gz
   - tar -xvf /tmp/pymisc-1.2.0.tar.gz -C /tmp/
-  - /tmp/pymisc-1.2.0/setup.py install
+  - cd /tmp/pymisc-1.2.0/ && /tmp/pymisc-1.2.0/setup.py install
