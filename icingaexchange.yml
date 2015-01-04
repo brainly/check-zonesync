@@ -1,0 +1,16 @@
+name: check-zonesync
+description: "file:///README.md"
+url: "https://github.com/vespian/check-zonesync"
+tags: DNS,Bind,zone
+vendor: Linux
+target: Website,Service
+type: Plugin
+license: Apache 2.0
+releases:
+    - name: 1.2.1
+      description: "All the features implemented and unittested."
+      files:
+         - name: 1.2.1.tar.gz
+           description: plugin tarbal
+           url: "https://github.com/vespian/check-zonesync/archive/1.2.1.tar.gz"
+           checksum: 58ebb515bf8aa1ba52e11a00108be1a8
