@@ -1,0 +1,17 @@
+$ORIGIN localdomain.
+$TTL 1600
+
+@               IN SOA	    ns dnsmaster.localdomain. (
+                            2014121101 ; serial
+                            1000 ; refresh
+                            2000 ; retry
+                            3000 ; expiry
+                            4000 ; nx domain TTL
+                            )
+
+@	    	    IN NS	    ns
+gw				IN A		127.0.0.10
+ns				IN A		127.0.100.5
+proxy			IN MX		10 ASPMX.L.GOOGLE.COM.
+proxy			IN MX		20 ALT1.ASPMX.L.GOOGLE.COM.
+other           IN TXT      "this is a sample text"

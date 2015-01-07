@@ -50,10 +50,11 @@ class ZoneParseFailed(RecoverableException):
     pass
 
 
-def parse_command_line():
+def parse_command_line(script_name, args):
     parser = argparse.ArgumentParser(
         description='Zone replication synchronization check.',
         epilog="Author: Pawel Rozlach <pawel.rozlach@brainly.com>",
+        prog=script_name,
         add_help=True,)
     parser.add_argument(
         '--version',
@@ -75,7 +76,7 @@ def parse_command_line():
         required=False,
         help="Log to stderr instead of syslog")
 
-    args = parser.parse_args()
+    args = parser.parse_args(args=args)
     return {'std_err': args.std_err,
             'verbose': args.verbose,
             'config_file': args.config_file,
@@ -112,12 +113,12 @@ def _verify_host_data(host_hash, zone, host_name):
             msg.append('Zonehost {0} from zone {1} has malformed IP: {2}.'.format(
                 host_name, zone, ip))
     else:
-        msg.append('Zonehost {0} from zone {1} '.format(zone) +
+        msg.append('Zonehost {0} from zone {1} '.format(host_name, zone) +
                    'does not have mandatory "ip" field.')
 
     if 'port' in host_hash:
         port = host_hash['port']
-        if not isinstance(port, int) or port < 1:
+        if not isinstance(port, int) or port < 1 or port > 65535:
             msg.append('Zonehost {0} of zone {1} '.format(host_name, zone) +
                        'has malformed port: {0}.'.format(port))
 
@@ -160,7 +161,7 @@ def _verify_conf(conf_hash):
     timeout = conf_hash['timeout']
     zones = conf_hash['zones']
 
-    if timeout < 1:
+    if not isinstance(timeout, int) or timeout < 1:
         msg.append('Timeout should be >1.')
 
     if len(zones) < 1:
@@ -169,7 +170,7 @@ def _verify_conf(conf_hash):
     for zone in zones:
         # Zone name has correct format
         if not re.match(r'^(([a-z0-9]\-*[a-z0-9]*){1,63}\.?){1,255}$', zone):
-            msg.append('Zone {0} is not a valid domain name.'.format(zone))
+            msg.append('Zone "{0}" is not a valid domain name.'.format(zone))
 
         # Small shortcut:
         def is_master(hostname):
@@ -193,7 +194,7 @@ def _verify_conf(conf_hash):
         # 1) one master and "zone_data" section specified in the config file
         # 2) two or more hosts if "zone_data" was not provided
         if 'zonedata' not in zones[zone] and len(zones[zone]['zonehosts']) < 2:
-            msg.append('Zone {0} should have at least'.format(zone) +
+            msg.append('Zone "{0}" should have at least'.format(zone) +
                        ' two masters or a slave and a master if zone_data' +
                        ' is not provided')
 
@@ -201,7 +202,7 @@ def _verify_conf(conf_hash):
         if 'zonedata' in zones[zone]:
             if not (os.path.exists(zones[zone]['zonedata'])
                     and os.access(zones[zone]['zonedata'], os.R_OK)):
-                msg.append("Zone's {0} zonedata file is not".format(zone) +
+                msg.append("Zone's '{0}' zonedata file is not ".format(zone) +
                            "accessible or cannot be read")
     return msg
 
@@ -217,6 +218,7 @@ def fetch_domain_data(zone_name=None, zone_file=None, host=None, port=None,
 
     Args:
         host: An IP address of the host to query for DNS data.
+        port: port on which DNS server listens
         path: The path to the file that contains zone data.
         key_id: An identification string for TSIG signing key.
         key_data: A TSIG signing key which should be used during
@@ -237,9 +239,9 @@ def fetch_domain_data(zone_name=None, zone_file=None, host=None, port=None,
             zone = dns.zone.from_file(zone_file, origin=zone_name)
         except dns.exception.DNSException as e:
             raise ZoneParseFailed() from e
-    elif not zone_file and \
-        (host and not (key_id or key_data or key_algo)) or \
-            (host and key_id and key_data and key_algo):
+    elif not zone_file and host and \
+        (not (key_id or key_data or key_algo) or \
+            (key_id and key_data and key_algo)):
         try:
             if key_id:
                 keyring = dns.tsigkeyring.from_text({key_id: key_data})
@@ -286,15 +288,6 @@ def compare_domain_data(zone_correct, zone_tested):
         - a list containing a full decription of differences.
 
         Both lists are empty if zones are identical.
-
-        For example, return value when data differes:
-            ZoneDiff(full=["SOA record differs: 1234->4321",
-                           "a.example.com CNAME record is missing",
-                           "b.example.com A record is redundant",
-                           ...],
-                     record_types=set(["SOA", "CNAME", "A"]))
-        ,return value where both hashes where identical:
-        ZoneDiff(full=[], record_types=set([]))
     """
     ret = namedtuple('ZoneDiff', ['full', 'record_types'])
     ret.full = []
@@ -358,9 +351,7 @@ def compare_domain_data(zone_correct, zone_tested):
                     ret.record_types.add(record_type)
                     ret.full.append("{0} '{1}':{2} is redundant".format(
                                     record_type, record_name, str(rdata)))
-                else:
-                    # "Entry correct" case has already been covered:
-                    pass
+                # "Entry correct" case has already been covered:
 
     return ret
 

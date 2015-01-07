@@ -1,5 +1,8 @@
 # _check_zonesync_
 
+[![Build
+Status](https://travis-ci.org/vespian/check-zonesync.svg?branch=master)](https://travis-ci.org/vespian/check-zonesync)
+
 check_zonesync is a nagios plugin which can determine whether zones are
 replicated properly between master and slave DNS servers and if master/masters
 have properly loaded zones/are serving the most recent version of zone/zones.
